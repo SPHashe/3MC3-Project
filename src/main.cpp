@@ -1,15 +1,21 @@
 #include <Arduino.h>
 #include <Servo.h>
-/*
-*********************************
-Project: Robotic Arm Control for 3MC3 - Motion Control and robotics
-Brought to you by Vic Cuatico, Nahor Debesay, and Parsa Hashemi
 
-Hardware Configuration:
-- Base Servo: Pin 9
-- Arm Joint 1 Servo (Left Servo): Pin 10
-- Arm Joint 2 Servo (Right Servo): Pin 11
-- Gripper Servo: Pin 12
+/*
+
+***************************************************************************
+***************************************************************************
+*** Project: Robotic Arm Control for 3MC3 - Motion Control and robotics ***
+*** Brought to you by Vic Cuatico, Nahor Debesay, and Parsa Hashemi     ***
+***                                                                     ***
+*** Hardware Configuration:                                             ***
+*** - Base Servo: Pin 9                                                 ***
+*** - Arm Joint 1 Servo (Left Servo): Pin 10                            ***
+*** - Arm Joint 2 Servo (Right Servo): Pin 11                           ***
+*** - Gripper Servo: Pin 12                                             ***
+***************************************************************************
+***************************************************************************
+
 */
 
 //Attached devices
@@ -24,6 +30,11 @@ Servo ArmJoint1Servo;
 Servo ArmJoint2Servo;
 Servo GripperServo;
 
+const int BaseServoPin = 9; // Pin for base servo
+const int ArmJoint1ServoPin = 10; // Pin for arm joint 1 servo
+const int ArmJoint2ServoPin = 11; // Pin for arm joint 2 servo
+const int GripperServoPin = 12; // Pin for gripper servo
+
 //Prototype functions
 void ArmInitialize();
 
@@ -33,10 +44,16 @@ void MoveArmJoint2(int speed, int position);
 void MoveGripper(int speed, int position);
 
 //Global variables
-float PreviousBasePosition = 180; // Current position of the base servo
-float PreviousArmJoint1Position = 180; // Current position of arm joint 1 servo
-float PreviousArmJoint2Position = 180; // Current position of arm joint 2 servo
-float PreviousGripperPosition = 180; // Current position of gripper servo
+float StartingBasePosition = 180; // Starting position of the base servo
+float StartingArmJoint1Position = 180; // Starting position of arm joint 1 servo
+float StartingArmJoint2Position = 180; // Starting position of arm joint 2 servo
+float StartingGripperPosition = 180; // Starting position of gripper servo
+
+float PreviousBasePosition = StartingBasePosition; // Current position of the base servo
+float PreviousArmJoint1Position = StartingArmJoint1Position; // Current position of arm joint 1 servo
+float PreviousArmJoint2Position = StartingArmJoint2Position; // Current position of arm joint 2 servo
+float PreviousGripperPosition = StartingGripperPosition; // Current position of gripper servo
+
 
 void setup() 
 {
@@ -55,40 +72,36 @@ void setup()
 
 void loop() 
 {
-  /*
-  float basePosition = analogRead(PotPinBase); // Read potentiometer value for base servo
-  float armJoint1Position = analogRead(PotPinArmJoint1); // Read potentiometer value for arm joint 1 servo
-  float armJoint2Position = analogRead(PotPinArmJoint2); // Read potentiometer value for arm joint 2 servo
-  float gripperPosition = analogRead(PotPinGripper); // Read potentiometer value for gripper servo
+  float BasePosition = map(analogRead(PotPinBase), 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
+  float ArmJoint1Position = map(analogRead(PotPinArmJoint1), 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
+  float ArmJoint2Position = map(analogRead(PotPinArmJoint2), 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
+  float GripperPosition = map(analogRead(PotPinGripper), 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
 
-  float basePositionConverted = map(basePosition, 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
-  float armJoint1PositionConverted = map(armJoint1Position, 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
-  float armJoint2PositionConverted = map(armJoint2Position, 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
-  float gripperPositionConverted = map(gripperPosition, 0, 1023, 0, 180); // Map potentiometer value to servo angle (0-180 degrees)
 
-  Serial.print("Base Position: "); Serial.println(basePositionConverted);
-  Serial.print("Arm Joint 1 Position: "); Serial.println(armJoint1PositionConverted);
-  Serial.print("Arm Joint 2 Position: "); Serial.println(armJoint2PositionConverted);
-  Serial.print("Gripper Position: "); Serial.println(gripperPositionConverted);
-
-  MoveBase(1, basePositionConverted); // Move base servo based on potentiometer value
-  MoveArmJoint1(1, armJoint1PositionConverted); // Move arm joint 1 servo based on potentiometer value
-  MoveArmJoint2(1, armJoint2PositionConverted); // Move arm joint 2 servo based on potentiometer value
-  MoveGripper(1, gripperPositionConverted); // Move gripper servo based on potentiometer value
+  /* // Debugging output to serial monitor
+  Serial.print("Base Position: "); Serial.println(BasePosition);
+  Serial.print("Arm Joint 1 Position: "); Serial.println(ArmJoint1Position);
+  Serial.print("Arm Joint 2 Position: "); Serial.println(ArmJoint2Position);
+  Serial.print("Gripper Position: "); Serial.println(GripperPosition);
   */
+
+  MoveBase(1, BasePosition); // Move base servo based on potentiometer value
+  MoveArmJoint1(1, ArmJoint1Position); // Move arm joint 1 servo based on potentiometer value
+  MoveArmJoint2(1, ArmJoint2Position); // Move arm joint 2 servo based on potentiometer value
+  MoveGripper(1, GripperPosition); // Move gripper servo based on potentiometer value
 }
 
 void ArmInitialize() 
 {
-  BaseServo.attach(9); // Attach base servo to pin 9
-  ArmJoint1Servo.attach(10); // Attach arm joint 1 servo to pin 10
-  ArmJoint2Servo.attach(11); // Attach arm joint 2 servo to pin 11
-  GripperServo.attach(12); // Attach gripper servo to pin 12
+  BaseServo.attach(BaseServoPin); // Attach base servo to pin 9
+  ArmJoint1Servo.attach(ArmJoint1ServoPin); // Attach arm joint 1 servo to pin 10
+  ArmJoint2Servo.attach(ArmJoint2ServoPin); // Attach arm joint 2 servo to pin 11
+  GripperServo.attach(GripperServoPin); // Attach gripper servo to pin 12
 
-  MoveBase(1, 0); // Move base to initial position
-  MoveArmJoint1(1, 0); // Move arm joint 1 to initial position
-  MoveArmJoint2(1, 0); // Move arm joint 2 to initial position
-  MoveGripper(1, 0); // Move gripper to initial position
+  MoveBase(1, StartingBasePosition); // Move base to initial position
+  MoveArmJoint1(1, StartingArmJoint1Position); // Move arm joint 1 to initial position
+  MoveArmJoint2(1, StartingArmJoint2Position); // Move arm joint 2 to initial position
+  MoveGripper(1, StartingGripperPosition); // Move gripper to initial position
 }
 
 void MoveBase(int speed, int position) 
