@@ -25,27 +25,76 @@ Servo ArmJoint1Servo;
 Servo ArmJoint2Servo;
 Servo GripperServo;
 
+//Position Control Variables
+int BasePosition = 0; // Current position of the base servo
+int ArmJoint1Position = 0; // Current position of arm joint 1 servo
+int ArmJoint2Position = 0; // Current position of arm joint 2 servo
+int GripperPosition = 0; // Current position of gripper servo
 
-// Pin assignments
-const int BaseServoPin = 9; // Pin for base servo
-const int ArmJoint1ServoPin = 10; // Pin for arm joint 1 servo
-const int ArmJoint2ServoPin = 11; // Pin for arm joint 2 servo
-const int GripperServoPin = 12; // Pin for gripper servo
+//Manual mode selection
+bool ManualMode = false; // Set to true for manual control, false for automatic control
 
-const int BasePotPin = A0; // Pin for base potentiometer
-const int ArmJoint1PotPin = A1; // Pin for arm joint 1 potentiometer
-const int ArmJoint2PotPin = A2; // Pin for arm joint 2 potentiometer
-const int GripperPotPin = A3; // Pin for gripper potentiometer
+//Manual control variables
+  // Pin assignments
+  const int ManualModeButtonPin = 2; // Pin for manual mode button
 
-// Servo control parameters
+  const int BaseServoPin = 9; // Pin for base servo
+  const int ArmJoint1ServoPin = 10; // Pin for arm joint 1 servo
+  const int ArmJoint2ServoPin = 11; // Pin for arm joint 2 servo
+  const int GripperServoPin = 12; // Pin for gripper servo
 
-const int ServoIncrement = 5; // Change this to set the target increment in degrees
-const int ServoDeadband = 3; // Required extra change before switching buckets. Make sure this is less than ServoIncrement to avoid skipping buckets.
+  const int BasePotPin = A0; // Pin for base potentiometer
+  const int ArmJoint1PotPin = A1; // Pin for arm joint 1 potentiometer
+  const int ArmJoint2PotPin = A2; // Pin for arm joint 2 potentiometer
+  const int GripperPotPin = A3; // Pin for gripper potentiometer
 
-const int BaseMaxPosition = 180; // Maximum position for base servo
-const int ArmJoint1MaxPosition = 180; // Maximum position for arm joint 1 servo // Was 125
-const int ArmJoint2MaxPosition = 180; // Maximum position for arm joint 2 //Was 80
-const int GripperMaxPosition = 180; // Maximum position for gripper servo
+  // Servo control parameters
+  const int ServoIncrement = 5; // Change this to set the target increment in degrees
+  const int ServoDeadband = 3; // Required extra change before switching buckets. Make sure this is less than ServoIncrement to avoid skipping buckets.
+
+  const int BaseMaxPosition = 180; // Maximum position for base servo
+  const int ArmJoint1MaxPosition = 180; // Maximum position for arm joint 1 servo // Was 125
+  const int ArmJoint2MaxPosition = 180; // Maximum position for arm joint 2 //Was 80
+  const int GripperMaxPosition = 180; // Maximum position for gripper servo
+
+  //manual control functions
+  void ManualControl();
+
+// Automatic control variables
+  // State control
+  bool HoldingItem = false; // Flag to indicate if the arm is holding an item
+  bool PresentingItem = false; // Flag to indicate if the arm is presenting an item
+
+  //Location of the cabinet locations (to be changed when hardware comes in) (To be changed to fwd or rev kinematics)
+  //also please dont forgfet to change the gripper positioning
+const int PositionVector[9][4] = {
+  {105, 65, 105, 0},
+  {85, 70, 110, 0},
+  {55, 65, 95, 0},
+  {105, 85, 80, 0},
+  {85, 85, 80, 0},
+  {55, 65, 95, 0},
+  {105, 65, 105, 0},
+  {85, 70, 110, 0},
+  {55, 65, 95, 0}
+}; 
+
+  //Automatic control functions
+  void AutomaticControl();
+
+  //present item sequence
+  void PresentItemSequence();
+
+  //Store item sequence
+  void StoreItemSequence();
+
+  //Pickup item sequence
+  void PickupItemSequence();
+
+  //place item sequence
+  void PlaceItemSequence();
+
+
 
 int QuantizePosition(int position) // Incrementation of the position to the nearest ServoIncrement
 {
@@ -95,10 +144,12 @@ void setup()
 
   ArmInitialize();
 
+  //manual control pin modes
   pinMode(BasePotPin, INPUT_PULLUP);
   pinMode(ArmJoint1PotPin, INPUT_PULLUP);
   pinMode(ArmJoint2PotPin, INPUT_PULLUP);
   pinMode(GripperPotPin, INPUT_PULLUP);
+  pinMode(ManualModeButtonPin, INPUT_PULLUP);
   
   Serial.println("Robotic Arm Control Initialized");
   delay(1000); // Wait for a second before starting the loop
@@ -106,23 +157,44 @@ void setup()
 
 void loop() 
 {
-  int BasePosition = StablePosition(map(analogRead(BasePotPin), 0, 1023, 0, 180), PreviousBasePosition); // Map potentiometer value to servo angle
-  int ArmJoint1Position = StablePosition(map(analogRead(ArmJoint1PotPin), 0, 1023, 0, 180), PreviousArmJoint1Position); // Map potentiometer value to servo angle
-  int ArmJoint2Position = StablePosition(map(analogRead(ArmJoint2PotPin), 0, 1023, 0, 180), PreviousArmJoint2Position); // Map potentiometer value to servo angle
-  int GripperPosition = StablePosition(map(analogRead(GripperPotPin), 0, 1023, 0, 180), PreviousGripperPosition); // Map potentiometer value to servo angle
+  // Check for manual mode button press or serial command to switch between manual and automatic modes
+  if (Serial.available() > 0) //Future ready for manual control via serial commands in bluetooth or USB serial communication. For now, it will switch between manual and automatic modes based on the received command.
+  {
+    char command = Serial.read();
+    if (command == 'm') 
+    {
+      ManualMode = true; // Switch to manual mode
+      Serial.println("Switched to Manual Mode");
+    } 
+    else if (command == 'a') 
+    {
+      ManualMode = false; // Switch to automatic mode
+      Serial.println("Switched to Automatic Mode");
+    }
+  }
 
+  if (digitalRead(ManualModeButtonPin) == HIGH) //Manual mode button is a momentary push button
+  {
+    ManualMode = true; // Switch to manual mode
+    //Serial.println("Switched to Manual Mode");
+  }
+  else 
+  {
+    ManualMode = false; // Switch to automatic mode
+    //Serial.println("Switched to Automatic Mode");
+  }
 
-  // Debugging output to serial monitor
-  Serial.print("Base Position: "); Serial.print(BasePosition);
-  Serial.print(" | Arm Joint 1 Position: "); Serial.print(ArmJoint1Position);
-  Serial.print(" | Arm Joint 2 Position: "); Serial.print(ArmJoint2Position);
-  Serial.print(" | Gripper Position: "); Serial.println(GripperPosition);  
-
-  MoveBase(1, BasePosition); // Move base servo based on potentiometer value
-  MoveArmJoint1(1, ArmJoint1Position); // Move arm joint 1 servo based on potentiometer value
-  MoveArmJoint2(1, ArmJoint2Position); // Move arm joint 2 servo based on potentiometer value
-  MoveGripper(1, GripperPosition); // Move gripper servo based on potentiometer value
+  if (ManualMode) 
+  {
+    ManualControl();
+  } 
+  else 
+  {
+    AutomaticControl();
+  }
 }
+
+
 
 void ArmInitialize() 
 {
@@ -146,6 +218,9 @@ void MoveBase(int speed, int position)
   {
     BaseServo.write(pos); // Move base servo to the specified position
     PreviousBasePosition = pos; // Update the previous position
+    BasePosition = pos; // Update the current position
+    Serial.print("Base Position: ");
+    Serial.println(BasePosition);
     delay(15); // Wait for the servo to reach the position
   }
   BaseServo.write(position);
@@ -161,6 +236,9 @@ void MoveArmJoint1(int speed, int position)
   {
     ArmJoint1Servo.write(pos); // Move arm joint 1 servo to the specified position
     PreviousArmJoint1Position = pos; // Update the previous position
+    ArmJoint1Position = pos; // Update the current position
+    Serial.print("Arm Joint 1 Position: ");
+    Serial.println(ArmJoint1Position);
     delay(15); // Wait for the servo to reach the position
   }
   ArmJoint1Servo.write(position);
@@ -175,7 +253,9 @@ void MoveArmJoint2(int speed, int position)
   for (int pos = PreviousArmJoint2Position; (step > 0) ? pos <= position : pos >= position; pos += step) 
   {
     ArmJoint2Servo.write(pos); // Move arm joint 2 servo to the specified position
-    PreviousArmJoint2Position = pos; // Update the previous position
+    ArmJoint2Position = pos; // Update the current position
+    Serial.print("Arm Joint 2 Position: ");
+    Serial.println(ArmJoint2Position);
     delay(15); // Wait for the servo to reach the position
   }
   ArmJoint2Servo.write(position);
@@ -190,9 +270,64 @@ void MoveGripper(int speed, int position)
   for (int pos = PreviousGripperPosition; (step > 0) ? pos <= position : pos >= position; pos += step) 
   {
     GripperServo.write(pos); // Move gripper servo to the specified position
-    PreviousGripperPosition = pos; // Update the previous position
+    GripperPosition = pos; // Update the current position
+    Serial.print("Gripper Position: ");
+    Serial.println(GripperPosition);
     delay(15); // Wait for the servo to reach the position
   }
   GripperServo.write(position);
   PreviousGripperPosition = position;
 }
+
+void ManualControl() 
+{
+  int BasePosition = StablePosition(map(analogRead(BasePotPin), 0, 1023, 0, 180), PreviousBasePosition); // Map potentiometer value to servo angle
+  int ArmJoint1Position = StablePosition(map(analogRead(ArmJoint1PotPin), 0, 1023, 0, 180), PreviousArmJoint1Position); // Map potentiometer value to servo angle
+  int ArmJoint2Position = StablePosition(map(analogRead(ArmJoint2PotPin), 0, 1023, 0, 180), PreviousArmJoint2Position); // Map potentiometer value to servo angle
+  int GripperPosition = StablePosition(map(analogRead(GripperPotPin), 0, 1023, 0, 180), PreviousGripperPosition); // Map potentiometer value to servo angle
+
+  MoveBase(1, BasePosition); // Move base servo based on potentiometer value
+  MoveArmJoint1(1, ArmJoint1Position); // Move arm joint 1 servo based on potentiometer value
+  MoveArmJoint2(1, ArmJoint2Position); // Move arm joint 2 servo based on potentiometer value
+  MoveGripper(1, GripperPosition); // Move gripper servo based on potentiometer value
+}
+
+void AutomaticControl() 
+{
+  /*
+  for (int i = 0; i < 9; i++) 
+  {
+    MoveBase(1, PositionVector[i][0]);
+    MoveArmJoint1(1, PositionVector[i][1]);
+    MoveArmJoint2(1, PositionVector[i][2]);
+    MoveGripper(1, PositionVector[i][3]);
+    delay(1000); // Wait for a second before moving to the next position
+
+
+  }
+    */
+}
+
+//present item sequence
+  void PresentItemSequence()
+  {
+
+  }
+
+  //Store item sequence
+  void StoreItemSequence()
+  {
+
+  }
+
+  //Pickup item sequence
+  void PickupItemSequence()
+  {
+
+  }
+
+  //place item sequence
+  void PlaceItemSequence()
+  {
+
+  }
