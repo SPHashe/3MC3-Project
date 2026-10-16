@@ -1,12 +1,6 @@
-#ifndef ARM_CONTROLLER_H
-#define ARM_CONTROLLER_H
-
 #include <Arduino.h>
-#if defined(ARDUINO_ARCH_ESP32)
-#include <ESP32Servo.h>
-#else
+//#include <ESP32Servo.h>
 #include <Servo.h>
-#endif
 
 class ArmController
 {
@@ -49,5 +43,3 @@ public:
   float armJoint2Angle() const;
   int gripperAngle() const;
 };
-
-#endif

@@ -64,5 +64,3 @@ private:
 	void enqueue(const CommunicationCommand &command);
 #endif
 };
-
-#endif
